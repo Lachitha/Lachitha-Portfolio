@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#0D1117"/>
+  <rect x="64" y="64" width="1072" height="502" rx="32" fill="#161B22" stroke="rgba(255,255,255,0.10)"/>
+  <text x="112" y="160" fill="#58A6FF" font-family="Inter, sans-serif" font-size="28" font-weight="700">Lachitha Yapa</text>
+  <text x="112" y="212" fill="#F0F6FC" font-family="Inter, sans-serif" font-size="56" font-weight="800">DevOps Engineer</text>
+  <text x="112" y="270" fill="#C9D1D9" font-family="Inter, sans-serif" font-size="24" font-weight="500">Cloud Infrastructure • Kubernetes • GitOps • Observability</text>
+  <rect x="112" y="332" width="180" height="48" rx="24" fill="rgba(88,166,255,0.14)" stroke="rgba(88,166,255,0.35)"/>
+  <text x="144" y="363" fill="#58A6FF" font-family="JetBrains Mono, monospace" font-size="18" font-weight="700">Open Terminal</text>
+  <circle cx="920" cy="185" r="42" fill="rgba(88,166,255,0.15)"/>
+  <circle cx="1010" cy="250" r="30" fill="rgba(63,185,80,0.16)"/>
+  <circle cx="870" cy="320" r="22" fill="rgba(139,92,246,0.2)"/>
+  <text x="840" y="420" fill="#8B949E" font-family="JetBrains Mono, monospace" font-size="20">lachitha@portfolio:~$</text>
+  <text x="840" y="456" fill="#3FB950" font-family="JetBrains Mono, monospace" font-size="18">System Ready</text>
+</svg>

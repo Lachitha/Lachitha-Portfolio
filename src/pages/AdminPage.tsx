@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { FaArrowLeft, FaCheck, FaKey, FaLock, FaPenFancy, FaPlus, FaSignOutAlt, FaTrash } from 'react-icons/fa'
 import { Link } from 'react-router-dom'
 import {
   addBlogPost,
   changeAdminPassword,
-  getAdminEmail,
+  getAdminState,
   getBlogPosts,
-  isAdminAuthenticated,
+  logoutAdmin,
   removeBlogPost,
-  setAdminAuthenticated,
   updateBlogPost,
   type BlogPost,
   verifyAdminLogin,
@@ -39,9 +38,10 @@ type PasswordForm = {
 }
 
 export function AdminPage() {
-  const [authenticated, setAuthenticated] = useState(() => isAdminAuthenticated())
-  const [credentials, setCredentials] = useState<CredentialsForm>({ email: getAdminEmail(), password: '' })
-  const [posts, setPosts] = useState<BlogPost[]>(() => getBlogPosts())
+  const [authenticated, setAuthenticated] = useState(false)
+  const [adminEmail, setAdminEmail] = useState('')
+  const [credentials, setCredentials] = useState<CredentialsForm>({ email: '', password: '' })
+  const [posts, setPosts] = useState<BlogPost[]>([])
   const [message, setMessage] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [postForm, setPostForm] = useState<PostForm>({
@@ -54,7 +54,7 @@ export function AdminPage() {
     imageData: '',
   })
   const [passwordForm, setPasswordForm] = useState<PasswordForm>({
-    email: getAdminEmail(),
+    email: '',
     previousPassword: '',
     vehicleNumber: '',
     newPassword: '',
@@ -62,24 +62,47 @@ export function AdminPage() {
   })
 
   useEffect(() => {
-    if (authenticated) {
-      setPosts(getBlogPosts())
+    let isMounted = true
+
+    getAdminState()
+      .then((state) => {
+        if (!isMounted) {
+          return
+        }
+        setAdminEmail(state.adminEmail)
+        setAuthenticated(state.authenticated)
+        setCredentials((current) => ({ ...current, email: state.adminEmail }))
+        setPasswordForm((current) => ({ ...current, email: state.adminEmail }))
+        if (state.authenticated) {
+          getBlogPosts().then((items) => {
+            if (isMounted) {
+              setPosts(items)
+            }
+          })
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setMessage(error instanceof Error ? error.message : 'Unable to load admin state.')
+        }
+      })
+
+    return () => {
+      isMounted = false
     }
-  }, [authenticated])
+  }, [])
 
-  const adminEmail = useMemo(() => getAdminEmail(), [])
-
-  const handleLogin = (event: FormEvent) => {
+  const handleLogin = async (event: FormEvent) => {
     event.preventDefault()
-    if (verifyAdminLogin(credentials.email, credentials.password)) {
-      setAdminAuthenticated(true)
+    try {
+      const result = await verifyAdminLogin(credentials.email, credentials.password)
       setAuthenticated(true)
       setCredentials((current) => ({ ...current, password: '' }))
-      setMessage('Admin login successful.')
-      return
+      setMessage(result.message)
+      setPosts(await getBlogPosts())
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Invalid email or password.')
     }
-
-    setMessage('Invalid email or password.')
   }
 
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -128,7 +151,7 @@ export function AdminPage() {
     setMessage(`Editing ${post.title}.`)
   }
 
-  const handleCreatePost = (event: FormEvent) => {
+  const handleCreatePost = async (event: FormEvent) => {
     event.preventDefault()
 
     const payload = {
@@ -144,36 +167,43 @@ export function AdminPage() {
       imageData: postForm.imageData,
     }
 
-    if (editingId) {
-      const updatedPost = updateBlogPost(editingId, payload)
-      if (updatedPost) {
+    try {
+      if (editingId) {
+        const updatedPost = await updateBlogPost(editingId, payload)
         setPosts((current) => current.map((item) => (item.id === editingId ? updatedPost : item)))
-        setMessage('Blog post updated locally.')
+        setMessage('Blog post updated.')
+      } else {
+        const nextPost = await addBlogPost(payload)
+        setPosts((current) => [nextPost, ...current])
+        setMessage('Blog post saved.')
       }
-    } else {
-      const nextPost = addBlogPost(payload)
-      setPosts((current) => [nextPost, ...current])
-      setMessage('Blog post saved locally.')
-    }
 
-    resetPostForm()
-  }
-
-  const handleDeletePost = (id: string) => {
-    setPosts(removeBlogPost(id))
-    setMessage('Blog post deleted.')
-    if (editingId === id) {
       resetPostForm()
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to save blog post.')
     }
   }
 
-  const handleLogout = () => {
-    setAdminAuthenticated(false)
+  const handleDeletePost = async (id: string) => {
+    try {
+      setPosts(await removeBlogPost(id))
+      setMessage('Blog post deleted.')
+      if (editingId === id) {
+        resetPostForm()
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to delete blog post.')
+    }
+  }
+
+  const handleLogout = async () => {
+    await logoutAdmin()
     setAuthenticated(false)
+    setPosts([])
     setMessage('Signed out.')
   }
 
-  const handleChangePassword = (event: FormEvent) => {
+  const handleChangePassword = async (event: FormEvent) => {
     event.preventDefault()
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
@@ -181,22 +211,26 @@ export function AdminPage() {
       return
     }
 
-    const result = changeAdminPassword({
-      email: passwordForm.email,
-      previousPassword: passwordForm.previousPassword,
-      vehicleNumber: passwordForm.vehicleNumber,
-      newPassword: passwordForm.newPassword,
-    })
+    try {
+      const result = await changeAdminPassword({
+        email: passwordForm.email,
+        previousPassword: passwordForm.previousPassword,
+        vehicleNumber: passwordForm.vehicleNumber,
+        newPassword: passwordForm.newPassword,
+      })
 
-    setMessage(result.message)
-    if (result.ok) {
-      setPasswordForm((current) => ({
-        ...current,
-        previousPassword: '',
-        vehicleNumber: '',
-        newPassword: '',
-        confirmPassword: '',
-      }))
+      setMessage(result.message)
+      if (result.ok) {
+        setPasswordForm((current) => ({
+          ...current,
+          previousPassword: '',
+          vehicleNumber: '',
+          newPassword: '',
+          confirmPassword: '',
+        }))
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to update password.')
     }
   }
 
@@ -280,7 +314,7 @@ export function AdminPage() {
                 Use the admin email and password to access the panel.
               </p>
               <div className="mt-6 rounded-3xl border border-white/10 bg-[#0D1117]/70 p-5 text-sm leading-8 text-[#8B949E]">
-                The panel is protected by local auth and stores posts in browser storage only.
+                The panel uses server auth and stores posts in backend JSON storage.
               </div>
             </div>
           </section>

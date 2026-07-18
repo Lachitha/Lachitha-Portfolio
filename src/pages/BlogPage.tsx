@@ -1,11 +1,34 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FaArrowLeft, FaCalendarAlt, FaCodeBranch, FaPenNib } from 'react-icons/fa'
 import { Link } from 'react-router-dom'
 import { getBlogPosts, type BlogPost } from '../data/blogStore'
 
 export function BlogPage() {
-  const posts = useMemo(() => getBlogPosts().filter((post) => post.status === 'published'), [])
-  const [selectedPost, setSelectedPost] = useState<BlogPost | null>(posts[0] ?? null)
+  const [posts, setPosts] = useState<BlogPost[]>([])
+  const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let isMounted = true
+
+    getBlogPosts({ publishedOnly: true })
+      .then((items) => {
+        if (!isMounted) {
+          return
+        }
+        setPosts(items)
+        setSelectedPost(items[0] ?? null)
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-[#0D1117] text-[#C9D1D9]">
@@ -32,6 +55,11 @@ export function BlogPage() {
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="space-y-4">
+            {loading ? (
+              <div className="rounded-3xl border border-white/10 bg-[#0D1117]/70 p-8 text-center text-[#8B949E]">
+                Loading posts...
+              </div>
+            ) : null}
             {posts.map((post) => (
               <button
                 key={post.id}

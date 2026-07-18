@@ -26,6 +26,7 @@ const STORE_PATHNAME = 'blog/blog-store.json'
 const LOCAL_STORE_PATH = join(process.cwd(), '.data', 'blog-store.json')
 const ADMIN_EMAIL = process.env.BLOG_ADMIN_EMAIL ?? 'lachisenarath576@gmail.com'
 const DEFAULT_ADMIN_PASSWORD = process.env.BLOG_ADMIN_PASSWORD ?? 'Lachi@45221++'
+const ADMIN_SESSION_SECRET = process.env.BLOG_ADMIN_SESSION_SECRET ?? process.env.BLOG_ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD
 const ADMIN_VEHICLE_NUMBER = process.env.BLOG_ADMIN_VEHICLE_NUMBER ?? 'CBU-7547'
 const SESSION_COOKIE = 'lachitha_blog_admin'
 const seedPosts: BlogPost[] = [
@@ -155,8 +156,7 @@ async function readJsonBody(request: ApiRequest) {
 }
 
 function signSession(value: string) {
-  const secret = process.env.BLOG_ADMIN_SESSION_SECRET ?? DEFAULT_ADMIN_PASSWORD
-  return createHmac('sha256', secret).update(value).digest('hex')
+  return createHmac('sha256', ADMIN_SESSION_SECRET).update(value).digest('hex')
 }
 
 function createSessionCookie() {

@@ -217,7 +217,6 @@ export function HomePage() {
               }`}
             >
               {themeMode === 'night' ? <FaMoon /> : <FaSun />}
-              {themeMode === 'night' ? 'Night' : 'Day'}
             </button>
           </div>
         </div>
@@ -285,7 +284,7 @@ export function HomePage() {
                     <div className="text-[#3FB950]">System Ready</div>
                     <div className="text-[#58A6FF]">lachitha@portfolio:~$ whoami</div>
                     <div>Lachitha Yapa</div>
-                    <div>Associate Infrastructure Engineer</div>
+                    <div>Infrastructure Engineer</div>
                     <div>DevOps Engineer</div>
                     <div>Cloud Infrastructure Engineer</div>
                     <div>Kubernetes Enthusiast</div>
@@ -438,10 +437,6 @@ export function HomePage() {
         <section id="contact" className={`rounded-[2rem] border p-6 sm:p-8 ${theme.section}`}>
           <div className="mb-8 space-y-3">
             <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[#58A6FF]">Contact</p>
-            <h2 className={`text-3xl font-semibold sm:text-4xl ${theme.heading}`}>Terminal-style contact panel</h2>
-            <p className={`max-w-2xl text-sm leading-7 sm:text-base ${theme.muted}`}>
-              Reach out for platform engineering, DevOps, and cloud infrastructure opportunities.
-            </p>
           </div>
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
             <div className={`rounded-3xl border p-6 ${theme.panel}`}>
@@ -456,7 +451,7 @@ export function HomePage() {
                 </div>
                 <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#161B22]/70 p-4">
                   <span className="text-[#58A6FF]">LinkedIn</span>
-                  <a href={profile.linkedin} target="_blank" rel="noreferrer" className="text-[#F0F6FC]">linkedin.com/in/lachitha</a>
+                  <a href={profile.linkedin} target="_blank" rel="noreferrer" className="text-[#F0F6FC]">https://www.linkedin.com/in/lachitha-senarathyapa/</a>
                 </div>
                 <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#161B22]/70 p-4">
                   <span className="text-[#58A6FF]">Resume Download</span>

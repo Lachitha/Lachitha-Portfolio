@@ -2,19 +2,19 @@ import type { CertificationItem, DashboardMetric, ExperienceItem, MonitorMetric,
 
 export const profile = {
   name: 'Lachitha Yapa',
-  role: 'Associate Infrastructure Engineer',
+  role: 'DevOps Engineer',
   title: 'DevOps Engineer',
-  subtitle: 'DevOps Engineer | Kubernetes | Cloud Infrastructure | Observability',
+  subtitle: 'Kubernetes | Cloud Infrastructure | Observability',
   experience: '2025 — Present',
   interests: ['Kubernetes platform engineering', 'Cloud infrastructure', 'GitOps automation', 'Observability'],
   mission: 'Design resilient, automated platforms that help engineering teams ship safely and quickly.',
   summary:
-    'Infrastructure engineer specializing in Kubernetes platforms, cloud infrastructure, GitOps automation, CI/CD pipelines, monitoring, and production reliability.',
+    'DevOps engineer specializing in Kubernetes platforms, cloud infrastructure, GitOps automation, CI/CD pipelines, monitoring, and production reliability.',
   organization: 'Sitecore',
   previousOrganization: 'Virtusa',
-  email: 'lachitha@yapa.dev',
+  email: 'lachisenarath576@gmail.com',
   github: 'https://github.com/lachitha',
-  linkedin: 'https://linkedin.com/in/lachitha',
+  linkedin: 'https://www.linkedin.com/in/lachitha-senarathyapa/',
   resume: '/resume.pdf',
   location: 'Sri Lanka',
 }
@@ -94,7 +94,7 @@ export const skillCategories: SkillCategory[] = [
 export const experience: ExperienceItem[] = [
   {
     company: 'Sitecore',
-    role: 'Associate Infrastructure Engineer',
+    role: 'Associate DevOps/SRE Engineer',
     period: '2025 - Present',
     summary: 'Owns production Kubernetes operations, GitOps delivery, monitoring pipelines, and incident response for critical internal services.',
     highlights: [

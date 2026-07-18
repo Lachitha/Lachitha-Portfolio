@@ -10,6 +10,7 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/blog" element={<BlogPage />} />
+        <Route path="/blog/:postId" element={<BlogPage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Routes>
     </BrowserRouter>

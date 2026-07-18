@@ -67,6 +67,9 @@ export function BlogPage() {
                 onClick={() => setSelectedPost(post)}
                 className={`w-full rounded-3xl border p-5 text-left transition hover:border-[#58A6FF]/40 ${selectedPost?.id === post.id ? 'border-[#58A6FF]/40 bg-[#161B22]' : 'border-white/10 bg-[#0D1117]/70'}`}
               >
+                <div className="mb-3 inline-flex rounded-full border border-[#58A6FF]/30 bg-[#58A6FF]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-[#58A6FF]">
+                  ID #{post.id}
+                </div>
                 {post.imageData ? (
                   <div className="mb-4 overflow-hidden rounded-3xl border border-white/10 bg-[#0D1117]">
                     <img src={post.imageData} alt={post.imageAlt || post.title} className="h-44 w-full object-cover" />
@@ -94,6 +97,9 @@ export function BlogPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-sm uppercase tracking-[0.3em] text-[#8B949E]">Featured article</p>
+                    <p className="mt-2 inline-flex rounded-full border border-[#58A6FF]/30 bg-[#58A6FF]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-[#58A6FF]">
+                      ID #{selectedPost.id}
+                    </p>
                     <h2 className="mt-2 text-3xl font-semibold text-[#F0F6FC]">{selectedPost.title}</h2>
                   </div>
                   <FaCodeBranch className="text-2xl text-[#58A6FF]" />

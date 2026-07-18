@@ -2,7 +2,7 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { IncomingMessage } from 'node:http'
-import { get, put } from '@vercel/blob'
+import { BlobNotFoundError, get, put } from '@vercel/blob'
 import { seedPosts } from '../src/data/blogSeed'
 import type { BlogPost, BlogPostInput } from '../src/types/blog'
 
@@ -45,7 +45,7 @@ function createDefaultStore(): BlogStoreData {
 }
 
 function canUseBlob() {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID)
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN)
 }
 
 async function readStream(stream: ReadableStream<Uint8Array>) {
@@ -54,13 +54,21 @@ async function readStream(stream: ReadableStream<Uint8Array>) {
 
 async function readStore(): Promise<BlogStoreData> {
   if (canUseBlob()) {
-    const result = await get(STORE_PATHNAME, { access: 'private', useCache: false })
-    if (!result || result.statusCode !== 200) {
-      return createDefaultStore()
-    }
+    try {
+      const result = await get(STORE_PATHNAME, { access: 'private', useCache: false })
+      if (!result || result.statusCode !== 200) {
+        return createDefaultStore()
+      }
 
-    const text = await readStream(result.stream)
-    return normalizeStore(JSON.parse(text))
+      const text = await readStream(result.stream)
+      return normalizeStore(JSON.parse(text))
+    } catch (error) {
+      if (error instanceof BlobNotFoundError) {
+        return createDefaultStore()
+      }
+
+      throw error
+    }
   }
 
   try {
@@ -347,6 +355,9 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : 'Unexpected server error.',
+      hint: canUseBlob()
+        ? 'Check the connected Vercel Blob store and BLOB_READ_WRITE_TOKEN.'
+        : 'BLOB_READ_WRITE_TOKEN is missing, so the API can only use local development fallback.',
     })
   }
 }

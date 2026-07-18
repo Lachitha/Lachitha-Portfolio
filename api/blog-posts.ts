@@ -1,4 +1,4 @@
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { IncomingMessage } from 'node:http'
@@ -20,13 +20,14 @@ interface ApiResponse {
 interface BlogStoreData {
   posts: BlogPost[]
   adminPassword: string
+  adminSessionToken: string
+  adminSessionIssuedAt: number
 }
 
 const STORE_PATHNAME = 'blog/blog-store.json'
 const LOCAL_STORE_PATH = join(process.cwd(), '.data', 'blog-store.json')
 const ADMIN_EMAIL = process.env.BLOG_ADMIN_EMAIL ?? 'lachisenarath576@gmail.com'
 const DEFAULT_ADMIN_PASSWORD = process.env.BLOG_ADMIN_PASSWORD ?? 'Lachi@45221++'
-const ADMIN_SESSION_SECRET = process.env.BLOG_ADMIN_SESSION_SECRET ?? process.env.BLOG_ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD
 const ADMIN_VEHICLE_NUMBER = process.env.BLOG_ADMIN_VEHICLE_NUMBER ?? 'CBU-7547'
 const SESSION_COOKIE = 'lachitha_blog_admin'
 const seedPosts: BlogPost[] = [
@@ -67,6 +68,8 @@ function createDefaultStore(): BlogStoreData {
   return {
     posts: seedPosts,
     adminPassword: DEFAULT_ADMIN_PASSWORD,
+    adminSessionToken: '',
+    adminSessionIssuedAt: 0,
   }
 }
 
@@ -134,6 +137,8 @@ function normalizeStore(input: unknown): BlogStoreData {
   return {
     posts: Array.isArray(candidate.posts) ? candidate.posts : seedPosts,
     adminPassword: typeof candidate.adminPassword === 'string' && candidate.adminPassword ? candidate.adminPassword : DEFAULT_ADMIN_PASSWORD,
+    adminSessionToken: typeof candidate.adminSessionToken === 'string' ? candidate.adminSessionToken : '',
+    adminSessionIssuedAt: typeof candidate.adminSessionIssuedAt === 'number' ? candidate.adminSessionIssuedAt : 0,
   }
 }
 
@@ -155,16 +160,9 @@ async function readJsonBody(request: ApiRequest) {
   return raw ? JSON.parse(raw) : {}
 }
 
-function signSession(value: string) {
-  return createHmac('sha256', ADMIN_SESSION_SECRET).update(value).digest('hex')
-}
-
-function createSessionCookie() {
-  const issuedAt = Date.now().toString()
-  const payload = `${ADMIN_EMAIL}:${issuedAt}`
-  const signature = signSession(payload)
+function createSessionCookie(token: string) {
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
-  return `${SESSION_COOKIE}=${payload}.${signature}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400${secure}`
+  return `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400${secure}`
 }
 
 function clearSessionCookie() {
@@ -181,32 +179,22 @@ function parseCookies(cookieHeader: string | undefined) {
   )
 }
 
-function safeEqual(left: string, right: string) {
-  const leftBuffer = Buffer.from(left)
-  const rightBuffer = Buffer.from(right)
-  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer)
-}
-
-function isAuthenticated(request: ApiRequest) {
+function isAuthenticated(request: ApiRequest, store: BlogStoreData) {
   const cookie = parseCookies(request.headers.cookie)[SESSION_COOKIE]
-  if (!cookie) {
+  if (!cookie || !store.adminSessionToken) {
     return false
   }
 
-  const [email, issuedAt, signature] = cookie.split('.').length === 2
-    ? [...cookie.split('.')[0].split(':'), cookie.split('.')[1]]
-    : ['', '', '']
-
-  const issuedTime = Number(issuedAt)
-  if (email !== ADMIN_EMAIL || Number.isNaN(issuedTime) || Date.now() - issuedTime > 86_400_000) {
+  const sessionAge = Date.now() - store.adminSessionIssuedAt
+  if (sessionAge < 0 || sessionAge > 86_400_000) {
     return false
   }
 
-  return safeEqual(signature, signSession(`${email}:${issuedAt}`))
+  return cookie === store.adminSessionToken
 }
 
-function requireAuth(request: ApiRequest, response: ApiResponse) {
-  if (isAuthenticated(request)) {
+function requireAuth(request: ApiRequest, response: ApiResponse, store: BlogStoreData) {
+  if (isAuthenticated(request, store)) {
     return true
   }
 
@@ -260,7 +248,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       response.status(200).json({
         posts: publishedOnly ? store.posts.filter((post) => post.status === 'published') : store.posts,
         adminEmail: ADMIN_EMAIL,
-        authenticated: isAuthenticated(request),
+        authenticated: isAuthenticated(request, store),
         storage: getStorageMode(),
       })
       return
@@ -289,7 +277,13 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       const password = String(credentials.password ?? '')
 
       if (email === ADMIN_EMAIL && password === store.adminPassword) {
-        response.setHeader('Set-Cookie', createSessionCookie())
+        const token = randomUUID()
+        await writeStore({
+          ...store,
+          adminSessionToken: token,
+          adminSessionIssuedAt: Date.now(),
+        })
+        response.setHeader('Set-Cookie', createSessionCookie(token))
         response.status(200).json({ ok: true, message: 'Admin login successful.', adminEmail: ADMIN_EMAIL })
         return
       }
@@ -299,17 +293,22 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     }
 
     if (request.method === 'POST' && action === 'logout') {
+      const store = await readStore()
+      await writeStore({
+        ...store,
+        adminSessionToken: '',
+        adminSessionIssuedAt: 0,
+      })
       response.setHeader('Set-Cookie', clearSessionCookie())
       response.status(200).json({ ok: true, message: 'Signed out.' })
       return
     }
 
     if (request.method === 'POST' && action === 'change-password') {
-      if (!requireAuth(request, response)) {
+      const store = await readStore()
+      if (!requireAuth(request, response, store)) {
         return
       }
-
-      const store = await readStore()
       const input = getBodyValue<Record<string, unknown>>(body)
       const email = String(input.email ?? '').trim().toLowerCase()
       const previousPassword = String(input.previousPassword ?? '')
@@ -341,7 +340,9 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       return
     }
 
-    if (!requireAuth(request, response)) {
+    const store = await readStore()
+
+    if (!requireAuth(request, response, store)) {
       return
     }
 
@@ -352,7 +353,6 @@ export default async function handler(request: ApiRequest, response: ApiResponse
         return
       }
 
-      const store = await readStore()
       const post = createPost(input)
       await writeStore({ ...store, posts: [post, ...store.posts] })
       response.status(201).json({ post })
@@ -369,7 +369,6 @@ export default async function handler(request: ApiRequest, response: ApiResponse
         return
       }
 
-      const store = await readStore()
       let updatedPost: BlogPost | null = null
       const posts = store.posts.map((post) => {
         if (post.id !== id) {
@@ -398,7 +397,6 @@ export default async function handler(request: ApiRequest, response: ApiResponse
         return
       }
 
-      const store = await readStore()
       const posts = store.posts.filter((post) => post.id !== id)
       await writeStore({ ...store, posts })
       response.status(200).json({ posts })

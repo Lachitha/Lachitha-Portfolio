@@ -18,9 +18,18 @@ async function requestJson<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   })
 
-  const payload = (await response.json()) as ApiResult<T>
+  const text = await response.text()
+  let payload: ApiResult<T>
+
+  try {
+    payload = text ? (JSON.parse(text) as ApiResult<T>) : ({} as ApiResult<T>)
+  } catch {
+    payload = { message: text || `Request failed with status ${response.status}.` } as ApiResult<T>
+  }
+
   if (!response.ok) {
-    throw new Error(payload.message ?? 'Request failed.')
+    const details = 'hint' in payload && typeof payload.hint === 'string' ? ` ${payload.hint}` : ''
+    throw new Error(`${payload.message ?? 'Request failed.'}${details}`)
   }
 
   return payload
@@ -44,7 +53,7 @@ export async function getBlogPosts(options: { publishedOnly?: boolean } = {}) {
 }
 
 export async function getAdminState() {
-  return requestJson<{ adminEmail: string; authenticated: boolean }>(API_PATH)
+  return requestJson<{ adminEmail: string; authenticated: boolean; storage: string }>(API_PATH)
 }
 
 export async function addBlogPost(post: BlogPostInput) {

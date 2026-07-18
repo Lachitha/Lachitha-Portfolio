@@ -40,6 +40,7 @@ type PasswordForm = {
 export function AdminPage() {
   const [authenticated, setAuthenticated] = useState(false)
   const [adminEmail, setAdminEmail] = useState('')
+  const [backendStatus, setBackendStatus] = useState('')
   const [credentials, setCredentials] = useState<CredentialsForm>({ email: '', password: '' })
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [message, setMessage] = useState('')
@@ -70,6 +71,7 @@ export function AdminPage() {
           return
         }
         setAdminEmail(state.adminEmail)
+        setBackendStatus(`Backend connected (${state.storage}).`)
         setAuthenticated(state.authenticated)
         setCredentials((current) => ({ ...current, email: state.adminEmail }))
         setPasswordForm((current) => ({ ...current, email: state.adminEmail }))
@@ -83,7 +85,9 @@ export function AdminPage() {
       })
       .catch((error) => {
         if (isMounted) {
-          setMessage(error instanceof Error ? error.message : 'Unable to load admin state.')
+          const errorMessage = error instanceof Error ? error.message : 'Unable to load admin state.'
+          setBackendStatus(`Backend error: ${errorMessage}`)
+          setMessage(errorMessage)
         }
       })
 
@@ -101,7 +105,18 @@ export function AdminPage() {
       setMessage(result.message)
       setPosts(await getBlogPosts())
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Invalid email or password.')
+      const errorMessage = error instanceof Error ? error.message : 'Invalid email or password.'
+      setMessage(`Login failed: ${errorMessage}`)
+    }
+  }
+
+  const handleBackendCheck = async () => {
+    try {
+      const response = await fetch('/api/blog-posts?health=true', { credentials: 'include' })
+      const text = await response.text()
+      setBackendStatus(`GET /api/blog-posts?health=true -> ${response.status}: ${text.slice(0, 260)}`)
+    } catch (error) {
+      setBackendStatus(`Backend request failed: ${error instanceof Error ? error.message : 'Unknown error.'}`)
     }
   }
 
@@ -268,8 +283,20 @@ export function AdminPage() {
         </section>
 
         <div className="mt-6 rounded-3xl border border-white/10 bg-[#0D1117]/70 p-4 text-sm text-[#8B949E]">
-          Admin email: <span className="text-[#58A6FF]">{adminEmail}</span>
-          {message ? <span className="ml-4 text-[#3FB950]">{message}</span> : null}
+          <div className="flex flex-wrap items-center gap-3">
+            <span>
+              Admin email: <span className="text-[#58A6FF]">{adminEmail || 'Loading...'}</span>
+            </span>
+            <button
+              type="button"
+              onClick={handleBackendCheck}
+              className="rounded-full border border-[#58A6FF]/30 bg-[#58A6FF]/10 px-3 py-1 text-xs font-semibold text-[#58A6FF] transition hover:bg-[#58A6FF]/20"
+            >
+              Check backend
+            </button>
+          </div>
+          {message ? <div className="mt-3 rounded-2xl border border-[#F2CC60]/20 bg-[#F2CC60]/10 p-3 text-[#F2CC60]">{message}</div> : null}
+          {backendStatus ? <div className="mt-3 break-words font-mono text-xs leading-6 text-[#8B949E]">{backendStatus}</div> : null}
         </div>
 
         {!authenticated ? (

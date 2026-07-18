@@ -3,7 +3,6 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { IncomingMessage } from 'node:http'
 import { BlobNotFoundError, get, put } from '@vercel/blob'
-import { seedPosts } from '../src/data/blogSeed'
 import type { BlogPost, BlogPostInput } from '../src/types/blog'
 
 interface ApiRequest extends IncomingMessage {
@@ -29,6 +28,32 @@ const ADMIN_EMAIL = process.env.BLOG_ADMIN_EMAIL ?? 'lachisenarath576@gmail.com'
 const DEFAULT_ADMIN_PASSWORD = process.env.BLOG_ADMIN_PASSWORD ?? 'Lachi@45221++'
 const ADMIN_VEHICLE_NUMBER = process.env.BLOG_ADMIN_VEHICLE_NUMBER ?? 'CBU-7547'
 const SESSION_COOKIE = 'lachitha_blog_admin'
+const seedPosts: BlogPost[] = [
+  {
+    id: '1',
+    slug: 'kubernetes-observability-that-actually-scales',
+    title: 'Kubernetes observability that actually scales',
+    excerpt: 'How I think about alerts, traces, metrics, and storage when the cluster starts to grow.',
+    content:
+      'Observability should reduce uncertainty, not create noise. In practice that means clean signal routing, sane retention, and dashboards that answer real operational questions. I prefer designing around alert intent, not tool count.',
+    tags: ['Kubernetes', 'Observability', 'Prometheus'],
+    imageAlt: 'Observability dashboard illustration',
+    publishedAt: '2026-07-10',
+    status: 'published',
+  },
+  {
+    id: '2',
+    slug: 'gitops-for-production-teams',
+    title: 'GitOps for production teams',
+    excerpt: 'Why declarative delivery gives platform teams safer releases and cleaner ownership.',
+    content:
+      'GitOps works best when the repository is treated as the source of truth and the deployment path is boring on purpose. That means predictable syncs, reviewable changes, and clear rollback points. Simplicity wins over cleverness.',
+    tags: ['GitOps', 'FluxCD', 'Deployment'],
+    imageAlt: 'GitOps delivery pipeline illustration',
+    publishedAt: '2026-06-28',
+    status: 'published',
+  },
+]
 
 function createSlug(title: string) {
   return title
@@ -46,6 +71,10 @@ function createDefaultStore(): BlogStoreData {
 
 function canUseBlob() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN)
+}
+
+function getStorageMode() {
+  return canUseBlob() ? 'vercel-blob' : 'local-dev-file'
 }
 
 async function readStream(stream: ReadableStream<Uint8Array>) {
@@ -215,17 +244,43 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   try {
     if (request.method === 'GET') {
       const store = await readStore()
+      if (request.query?.health === 'true') {
+        response.status(200).json({
+          ok: true,
+          message: 'Blog storage is reachable.',
+          storage: getStorageMode(),
+          posts: store.posts.length,
+          adminEmailConfigured: Boolean(ADMIN_EMAIL),
+          blobTokenConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+        })
+        return
+      }
+
       const publishedOnly = request.query?.published === 'true'
       response.status(200).json({
         posts: publishedOnly ? store.posts.filter((post) => post.status === 'published') : store.posts,
         adminEmail: ADMIN_EMAIL,
         authenticated: isAuthenticated(request),
+        storage: getStorageMode(),
       })
       return
     }
 
     const body = await readJsonBody(request)
     const action = getBodyValue<{ action?: unknown }>(body).action
+
+    if (request.method === 'POST' && action === 'health') {
+      const store = await readStore()
+      response.status(200).json({
+        ok: true,
+        message: 'Blog backend is reachable.',
+        storage: getStorageMode(),
+        posts: store.posts.length,
+        adminEmailConfigured: Boolean(ADMIN_EMAIL),
+        blobTokenConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+      })
+      return
+    }
 
     if (request.method === 'POST' && action === 'login') {
       const store = await readStore()
@@ -355,6 +410,8 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : 'Unexpected server error.',
+      storage: getStorageMode(),
+      blobTokenConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
       hint: canUseBlob()
         ? 'Check the connected Vercel Blob store and BLOB_READ_WRITE_TOKEN.'
         : 'BLOB_READ_WRITE_TOKEN is missing, so the API can only use local development fallback.',
